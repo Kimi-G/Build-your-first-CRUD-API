@@ -103,26 +103,27 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "type": "string",
-                    "example": "Buy almond milk"
-                  },
-                  "done": {
-                    "type": "boolean",
-                    "example": true
-                  }
-                }
-              }
-            }
+      "requestBody": {
+  "required": true,
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Buy almond milk"
+          },
+          "done": {
+            "type": "boolean",
+            "example": true
           }
-        },
+        }
+      }
+    }
+  }
+},
         "responses": {
           "200": {
             "description": "Task updated"

@@ -61,10 +61,11 @@ http://localhost:3000/docs
 curl -i http://localhost:3000/tasks/1
 ```
 
-Example response:
+Example output:
 
 ```text
 HTTP/1.1 200 OK
+X-Powered-By: Express
 Content-Type: application/json; charset=utf-8
 
 {"id":1,"title":"Learn Express","done":false}
