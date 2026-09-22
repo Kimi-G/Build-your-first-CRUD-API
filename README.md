@@ -75,6 +75,16 @@ Content-Type: application/json; charset=utf-8
 
 This project uses in-memory storage. Tasks are stored in a JavaScript array and are reset when the server restarts.
 
+## SQLite Query Example
+
+During the database exploration, I ran:
+
+```sql
+SELECT * FROM tasks WHERE done = 1;
+```
+
+This query returned all completed tasks, demonstrating how SQL can filter rows directly in the SQLite database.
+
 ## Technologies
 
 - Node.js
