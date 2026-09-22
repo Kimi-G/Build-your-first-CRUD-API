@@ -73,7 +73,25 @@ Content-Type: application/json; charset=utf-8
 
 ## Data Storage
 
-This project uses in-memory storage. Tasks are stored in a JavaScript array and are reset when the server restarts.
+This project uses SQLite for persistent task storage. SQLite was chosen because it is lightweight, requires no separate database server, stores data in a single file, and allows task data to survive application restarts.
+
+The database is stored locally in:
+
+```text
+tasks.db
+```
+
+The database file and the `tasks` table are created automatically when the application starts if they do not already exist.
+
+Three example tasks are inserted only when the `tasks` table is empty. This prevents the seed data from being duplicated when the server restarts.
+
+The `tasks.db` file is excluded from Git using `.gitignore`. When the repository is cloned and the application is started, a new database is created automatically.
+
+## Database Screenshot
+
+The SQLite database can be inspected using DB Browser for SQLite.
+
+![SQLite Database in DB Browser](docs/sqlite-db-browser.png)
 
 ## SQLite Query Example
 
