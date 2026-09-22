@@ -36,13 +36,6 @@ if (row.count === 0) {
   console.log("Seeded 3 example tasks.");
 }
 
-// In-memory task list
-const tasks = [
-  { id: 1, title: "Learn Express", done: false },
-  { id: 2, title: "Build CRUD API", done: false },
-  { id: 3, title: "Test API", done: true }
-];
-
 app.get("/", (req, res) => {
   res.json({
     name: "Task API",
@@ -124,22 +117,24 @@ app.post("/tasks", (req, res) => {
   });
 });
 
-// Update a task
+// Update a task in the database
 app.put("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  const task = tasks.find((task) => task.id === id);
-
   // Check whether the task exists
-  if (!task) {
+  const existingTask = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(id);
+
+  if (!existingTask) {
     return res.status(404).json({
-      error: `Task ${id} not found`
+      error: "Task not found"
     });
   }
 
   const { title, done } = req.body;
 
-  // Title is required and cannot be empty
+  // Validate title
   if (
     title === undefined ||
     typeof title !== "string" ||
@@ -150,37 +145,47 @@ app.put("/tasks/:id", (req, res) => {
     });
   }
 
-  // If done is provided, it must be a boolean
+  // Validate done if provided
   if (done !== undefined && typeof done !== "boolean") {
     return res.status(400).json({
       error: "Done must be true or false"
     });
   }
 
-  // Update the task
-  task.title = title.trim();
+  // Keep the existing done value if none was provided
+  const updatedDone =
+    done !== undefined ? (done ? 1 : 0) : existingTask.done;
 
-  if (done !== undefined) {
-    task.done = done;
-  }
+  // Update the task using a parameterized SQL query
+  db.prepare(
+    "UPDATE tasks SET title = ?, done = ? WHERE id = ?"
+  ).run(title.trim(), updatedDone, id);
 
-  // Return the updated task
-  res.status(200).json(task);
+  // Read the updated task
+  const updatedTask = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(id);
+
+  res.status(200).json({
+    id: updatedTask.id,
+    title: updatedTask.title,
+    done: Boolean(updatedTask.done)
+  });
 });
 
-// Delete a task
+// Delete a task from the database
 app.delete("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  const index = tasks.findIndex((task) => task.id === id);
+  const result = db
+    .prepare("DELETE FROM tasks WHERE id = ?")
+    .run(id);
 
-  if (index === -1) {
+  if (result.changes === 0) {
     return res.status(404).json({
-      error: `Task ${id} not found`
+      error: "Task not found"
     });
   }
-
-  tasks.splice(index, 1);
 
   res.status(204).send();
 });
