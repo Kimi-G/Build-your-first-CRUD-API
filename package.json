@@ -18,7 +18,9 @@
   },
   "homepage": "https://github.com/Kimi-G/Build-your-first-CRUD-API#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "better-sqlite3": "^13.0.3",
+    "dotenv": "^18.0.2",
     "express": "^5.2.1",
     "swagger-ui-express": "^5.0.1"
   }
