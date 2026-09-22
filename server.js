@@ -267,6 +267,35 @@ app.post("/auth/login", async (req, res) => {
   });
 });
 
+// Public route
+app.get("/public/info", (req, res) => {
+  res.status(200).json({
+    message: "Welcome stranger! This info is public."
+  });
+});
+
+// Protected route - token presence check only
+app.get("/protected/profile", (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (
+    !authHeader ||
+    !authHeader.startsWith("Bearer ") ||
+    authHeader.split(" ")[1] === ""
+  ) {
+    return res.status(401).json({
+      error: "Access token required"
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  res.status(200).json({
+    message: "Token received",
+    token_present: true
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log("Supabase client initialized.");
