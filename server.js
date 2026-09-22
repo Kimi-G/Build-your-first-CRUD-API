@@ -274,24 +274,32 @@ app.get("/public/info", (req, res) => {
   });
 });
 
-// Protected profile route - verifies JWT with Supabase
-app.get("/protected/profile", async (req, res) => {
+// Reusable authentication middleware
+async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
 
   // Check for Authorization: Bearer <token>
+  if (!authHeader) {
+    return res.status(401).json({
+      error: "Access token required"
+    });
+  }
+
+  const parts = authHeader.split(" ");
+
   if (
-    !authHeader ||
-    !authHeader.startsWith("Bearer ") ||
-    !authHeader.split(" ")[1]
+    parts.length !== 2 ||
+    parts[0] !== "Bearer" ||
+    !parts[1]
   ) {
     return res.status(401).json({
       error: "Access token required"
     });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = parts[1];
 
-  // Verify the token with Supabase
+  // Verify token with Supabase
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user) {
@@ -300,12 +308,41 @@ app.get("/protected/profile", async (req, res) => {
     });
   }
 
-  // Token is valid
-  return res.status(200).json({
-    id: data.user.id,
-    email: data.user.email,
-    created_at: data.user.created_at
+  // Attach verified user and token to the request
+  req.user = data.user;
+  req.accessToken = token;
+
+  next();
+}
+
+// Protected profile route
+app.get("/protected/profile", requireAuth, (req, res) => {
+  res.status(200).json({
+    id: req.user.id,
+    email: req.user.email,
+    created_at: req.user.created_at
   });
+});
+
+// Second protected route
+app.get("/protected/dashboard", requireAuth, (req, res) => {
+  res.status(200).json({
+    message: "Welcome to your protected dashboard.",
+    user_id: req.user.id
+  });
+});
+
+// Log out authenticated user
+app.post("/auth/logout", requireAuth, async (req, res) => {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+
+  res.status(204).send();
 });
 
 app.listen(PORT, () => {
