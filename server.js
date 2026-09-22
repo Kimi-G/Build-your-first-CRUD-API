@@ -91,34 +91,38 @@ app.get("/tasks/:id", (req, res) => {
   });
 });
 
-// Create a new task
+// Create a new task in the database
 app.post("/tasks", (req, res) => {
   const { title } = req.body;
 
   // Validate title
-  if (!title || title.trim() === "") {
+  if (
+    title === undefined ||
+    typeof title !== "string" ||
+    title.trim() === ""
+  ) {
     return res.status(400).json({
       error: "Title is required"
     });
   }
 
-  // Find the next available ID
-  const nextId =
-    tasks.length > 0
-      ? Math.max(...tasks.map((task) => task.id)) + 1
-      : 1;
+  // Insert the task into SQLite
+  const result = db
+    .prepare("INSERT INTO tasks (title, done) VALUES (?, ?)")
+    .run(title.trim(), 0);
 
-  const newTask = {
-    id: nextId,
-    title: title.trim(),
-    done: false
-  };
+  // Retrieve the newly created task
+  const newTask = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(result.lastInsertRowid);
 
-  tasks.push(newTask);
-
-  res.status(201).json(newTask);
+  // Return the task using the same response shape as Assignment 1
+  res.status(201).json({
+    id: newTask.id,
+    title: newTask.title,
+    done: Boolean(newTask.done)
+  });
 });
-
 
 // Update a task
 app.put("/tasks/:id", (req, res) => {
