@@ -57,24 +57,38 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Get all tasks
+// Get all tasks from the database
 app.get("/tasks", (req, res) => {
-  res.json(tasks);
+  const tasks = db.prepare("SELECT * FROM tasks").all();
+
+  const formattedTasks = tasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    done: Boolean(task.done)
+  }));
+
+  res.status(200).json(formattedTasks);
 });
 
-// Get one task by ID
+// Get one task by ID from the database
 app.get("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  const task = tasks.find((task) => task.id === id);
+  const task = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(id);
 
   if (!task) {
     return res.status(404).json({
-      error: `Task ${id} not found`
+      error: "Task not found"
     });
   }
 
-  res.json(task);
+  res.status(200).json({
+    id: task.id,
+    title: task.title,
+    done: Boolean(task.done)
+  });
 });
 
 // Create a new task
