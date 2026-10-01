@@ -1,6 +1,6 @@
-# Build Your First CRUD API
+# Task API with Authentication
 
-A simple in-memory CRUD API built with Node.js and Express.
+A Node.js and Express REST API that provides SQLite-backed CRUD operations and Supabase authentication. The API supports user signup, login, logout, JWT verification, reusable authentication middleware, protected routes, and Swagger UI documentation with Bearer authentication.
 
 ## Features
 
@@ -11,11 +11,15 @@ A simple in-memory CRUD API built with Node.js and Express.
 - Delete tasks
 - Input validation
 - Swagger UI documentation
-- In-memory storage
+- Persistent SQLite storage
+- Supabase authentication
+- JWT-protected routes
+- Reusable authentication middleware
+- Swagger Bearer authentication
 
 ## Installation
 
-Clone the repository and install dependencies:
+Install dependencies:
 
 ```bash
 npm install
@@ -33,15 +37,50 @@ The API runs at:
 http://localhost:3000
 ```
 
+Swagger UI is available at:
+
 ## Swagger UI
 
-The API can be tested interactively using Swagger UI at:
+Interactive API documentation is available at:
 
 ```text
 http://localhost:3000/docs
 ```
 
-![Swagger UI](docs/swagger-ui.png)
+## Swagger Authentication
+
+Swagger UI supports Bearer authentication for protected routes. Use the **Authorize** button to provide a valid Supabase access token.
+
+![Swagger UI with Bearer Authentication](docs/swagger-auth.png)
+
+## Environment Setup
+
+This project uses Supabase Auth for authentication.
+
+Create a `.env` file in the project root using `.env.example` as a template:
+
+```env
+SUPABASE_URL=your_project_url
+SUPABASE_KEY=your_publishable_or_anon_key
+PORT=3000
+```
+
+The real `.env` file is excluded from Git and must never be committed.
+
+For this practice project, email confirmation is disabled in Supabase so newly registered users can log in immediately.
+
+## Authentication Flow
+
+1. Create an account with `POST /auth/signup`.
+2. Log in with `POST /auth/login`.
+3. Copy the returned `access_token`.
+4. Send the token to protected routes using:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+5. The API verifies the access token with Supabase before allowing access to protected routes.
 
 ## API Endpoints
 
@@ -55,12 +94,32 @@ http://localhost:3000/docs
 | PUT | `/tasks/:id` | Update a task |
 | DELETE | `/tasks/:id` | Delete a task |
 
+## Authentication API
+
+| Method | Endpoint | Description | Authentication |
+| --- | --- | --- | --- |
+| POST | `/auth/signup` | Create a new user account | No |
+| POST | `/auth/login` | Log in and receive access and refresh tokens | No |
+| POST | `/auth/logout` | Log out the authenticated user | Bearer token |
+| GET | `/protected/profile` | Get authenticated user profile | Bearer token |
+| GET | `/public/info` | Get public information | No |
+| GET | `/protected/dashboard` | Example second protected route | Bearer token |
+
+## Authentication Status Codes
+
+| Status | Meaning |
+| --- | --- |
+| `200` | Successful login or protected read |
+| `201` | User successfully created |
+| `204` | Successful logout |
+| `400` | Missing or invalid request body |
+| `401` | Missing, malformed, invalid, or expired access token |
+
 ## Example Request
 
 ```bash
 curl -i http://localhost:3000/tasks/1
 ```
-
 Example output:
 
 ```text
@@ -107,6 +166,11 @@ This query returned all completed tasks, demonstrating how SQL can filter rows d
 
 - Node.js
 - Express
+- SQLite
+- better-sqlite3
+- Supabase Auth
+- @supabase/supabase-js
+- dotenv
 - Swagger UI
 - OpenAPI
 - Git
