@@ -32,6 +32,23 @@ const BookSchema = z.object({
   fetched_at: z.string().datetime()
 });
 
+const RUN_REPORT_FILE = path.join(
+  OUTPUT_DIR,
+  "run-report.json"
+);
+
+const runStats = {
+  startTime: new Date().toISOString(),
+  networkRequests: 0,
+  pagesFetched: 0,
+  cacheHits: 0,
+  failedPages: []
+};
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function normalizeRecord(rawRecord) {
   const numericPrice = Number(
     rawRecord.price_text.replace("£", "").trim()
@@ -148,6 +165,8 @@ async function getPage(url, cacheFile) {
   if (fs.existsSync(cacheFile)) {
     const html = fs.readFileSync(cacheFile, "utf8");
 
+    runStats.cacheHits++;
+
     console.log(`CACHE HIT ${url}`);
 
     return {
@@ -158,53 +177,108 @@ async function getPage(url, cacheFile) {
     };
   }
 
-  await waitBeforeRealRequest();
+  const maxAttempts = 2;
 
-  console.log(`FETCH ${url}`);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await waitBeforeRealRequest();
 
-  const controller = new AbortController();
+    console.log(
+      `FETCH ${url} attempt=${attempt}`
+    );
 
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT_MS);
+    const controller = new AbortController();
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT
-      },
-      signal: controller.signal
-    });
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, TIMEOUT_MS);
 
-    lastRealRequestTime = Date.now();
+    try {
+      runStats.networkRequests++;
+      lastRealRequestTime = Date.now();
 
-    if (response.status !== 200) {
-      throw new Error(
-        `Fetch failed with status ${response.status}: ${url}`
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT
+        },
+        signal: controller.signal
+      });
+
+      // Never retry 403 or 404
+      if (response.status === 403 || response.status === 404) {
+        const error = new Error(
+          `Fetch failed with status ${response.status}: ${url}`
+        );
+
+        error.status = response.status;
+        throw error;
+      }
+
+      // Retry server errors once
+      if (response.status >= 500 && response.status <= 599) {
+        if (attempt < maxAttempts) {
+          console.warn(
+            `Server error ${response.status}; retrying once...`
+          );
+
+          await sleep(1000);
+          continue;
+        }
+
+        const error = new Error(
+          `Fetch failed with status ${response.status}: ${url}`
+        );
+
+        error.status = response.status;
+        throw error;
+      }
+
+      if (response.status !== 200) {
+        const error = new Error(
+          `Fetch failed with status ${response.status}: ${url}`
+        );
+
+        error.status = response.status;
+        throw error;
+      }
+
+      const html = await response.text();
+
+      fs.mkdirSync(
+        path.dirname(cacheFile),
+        { recursive: true }
       );
+
+      fs.writeFileSync(
+        cacheFile,
+        html,
+        "utf8"
+      );
+
+      runStats.pagesFetched++;
+
+      console.log(`status=${response.status}`);
+
+      return {
+        html,
+        fetchedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      const isTimeout = error.name === "AbortError";
+
+      // Retry timeout once
+      if (isTimeout && attempt < maxAttempts) {
+        console.warn(
+          `Request timed out; retrying once...`
+        );
+
+        await sleep(1000);
+        continue;
+      }
+
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const html = await response.text();
-
-    fs.mkdirSync(
-      path.dirname(cacheFile),
-      { recursive: true }
-    );
-
-    fs.writeFileSync(
-      cacheFile,
-      html,
-      "utf8"
-    );
-
-    console.log(`status=${response.status}`);
-
-    return {
-      html,
-      fetchedAt: new Date().toISOString()
-    };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -357,48 +431,104 @@ function extractBookRecord(
 }
 
 // Visit all 60 book pages
-async function extractAllBooks(
-  discoveredBooks
-) {
+async function extractAllBooks(discoveredBooks) {
   const rawRecords = [];
 
   for (const book of discoveredBooks) {
-    const cacheFile =
-      getBookCacheFile(
-        book.product_url
-      );
+    try {
+      const cacheFile =
+        getBookCacheFile(book.product_url);
 
-    const {
-      html,
-      fetchedAt
-    } = await getPage(
-      book.product_url,
-      cacheFile
-    );
-
-    const record =
-      extractBookRecord(
+      const {
         html,
-        book.product_url,
-        book.source_page,
         fetchedAt
+      } = await getPage(
+        book.product_url,
+        cacheFile
       );
 
-    rawRecords.push(record);
+      const record =
+        extractBookRecord(
+          html,
+          book.product_url,
+          book.source_page,
+          fetchedAt
+        );
+
+      rawRecords.push(record);
+    } catch (error) {
+      console.error(
+        `SKIPPED ${book.product_url}: ${error.message}`
+      );
+
+      runStats.failedPages.push({
+        url: book.product_url,
+        status: error.status || null,
+        reason: error.message
+      });
+    }
   }
 
   return rawRecords;
 }
 
+function writeRunReport(
+  validRecords,
+  errors,
+  startedAtMs
+) {
+  const report = {
+    start_time: runStats.startTime,
+    duration_ms: Date.now() - startedAtMs,
+    network_requests: runStats.networkRequests,
+    pages_fetched: runStats.pagesFetched,
+    cache_hits: runStats.cacheHits,
+    valid_records: validRecords.length,
+    invalid_records: errors.length,
+    failed_pages: runStats.failedPages.length,
+    failed_page_details: runStats.failedPages
+  };
+
+  fs.mkdirSync(OUTPUT_DIR, {
+    recursive: true
+  });
+
+  fs.writeFileSync(
+    RUN_REPORT_FILE,
+    JSON.stringify(report, null, 2),
+    "utf8"
+  );
+
+  return report;
+}
+
 async function main() {
+  const startedAtMs = Date.now();
+
   try {
-    const discoveredBooks = await discoverBooks();
+    const discoveredBooks =
+      await discoverBooks();
 
-    const rawRecords = await extractAllBooks(
-      discoveredBooks
+    if (process.env.INJECT_FAKE_URL === "1") {
+      discoveredBooks.push({
+        product_url:
+          "https://books.toscrape.com/catalogue/definitely-not-a-real-book-stage-5/index.html",
+        source_page: START_URL
+      });
+
+      console.log(
+        "Injected one fake URL for Stage 5 failure test."
+      );
+    }
+
+    const rawRecords =
+      await extractAllBooks(
+        discoveredBooks
+      );
+
+    console.log(
+      `detail_pages=${rawRecords.length}`
     );
-
-    console.log(`detail_pages=${rawRecords.length}`);
 
     const {
       validRecords,
@@ -406,28 +536,59 @@ async function main() {
     } = validateRecords(rawRecords);
 
     const uniqueValidRecords =
-      deduplicateByProductUrl(validRecords);
+      deduplicateByProductUrl(
+        validRecords
+      );
 
-    writeOutput(uniqueValidRecords, errors);
+    writeOutput(
+      uniqueValidRecords,
+      errors
+    );
 
-    console.log(`valid_records=${uniqueValidRecords.length}`);
-    console.log(`invalid_records=${errors.length}`);
-    console.log(`books_file=${BOOKS_FILE}`);
-    console.log(`errors_file=${ERRORS_FILE}`);
+    const report =
+      writeRunReport(
+        uniqueValidRecords,
+        errors,
+        startedAtMs
+      );
 
-    console.log("\nSample validated record:");
     console.log(
-      JSON.stringify(uniqueValidRecords[0], null, 2)
+      `valid_records=${uniqueValidRecords.length}`
+    );
+
+    console.log(
+      `invalid_records=${errors.length}`
+    );
+
+    console.log(
+      `failed_pages=${runStats.failedPages.length}`
+    );
+
+    console.log(
+      `cache_hits=${runStats.cacheHits}`
+    );
+
+    console.log(
+      `pages_fetched=${runStats.pagesFetched}`
+    );
+
+    console.log(
+      `run_report=${RUN_REPORT_FILE}`
+    );
+
+    console.log(
+      "\nRun report:"
+    );
+
+    console.log(
+      JSON.stringify(
+        report,
+        null,
+        2
+      )
     );
   } catch (error) {
-    if (error.name === "AbortError") {
-      console.error(
-        `Request timed out after ${TIMEOUT_MS} ms`
-      );
-    } else {
-      console.error(error.message);
-    }
-
+    console.error(error.message);
     process.exitCode = 1;
   }
 }
