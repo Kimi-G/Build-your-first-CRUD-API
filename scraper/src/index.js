@@ -1,12 +1,16 @@
 const fs = require("fs");
 const path = require("path");
 const cheerio = require("cheerio");
+const { z } = require("zod");
 
 const START_URL =
   "https://books.toscrape.com/catalogue/page-1.html";
 
 const CACHE_DIR = path.join(__dirname, "..", "cache");
 const BOOK_CACHE_DIR = path.join(CACHE_DIR, "books");
+const OUTPUT_DIR = path.join(__dirname, "..", "output");
+const BOOKS_FILE = path.join(OUTPUT_DIR, "books.json");
+const ERRORS_FILE = path.join(OUTPUT_DIR, "errors.json");
 
 const USER_AGENT =
   "FlyRankInternship-A9/1.0 (+https://github.com/Kimi-G/Build-your-first-CRUD-API)";
@@ -15,6 +19,83 @@ const TIMEOUT_MS = 5000;
 const REQUEST_DELAY_MS = 500;
 
 let lastRealRequestTime = 0;
+
+const BookSchema = z.object({
+  title: z.string().min(1),
+  product_url: z.string().url(),
+  price_text: z.string().min(1),
+  price_gbp: z.number().finite().nonnegative(),
+  availability_text: z.string().min(1),
+  rating_text: z.string().min(1),
+  description: z.string().nullable(),
+  source_page: z.string().url(),
+  fetched_at: z.string().datetime()
+});
+
+function normalizeRecord(rawRecord) {
+  const numericPrice = Number(
+    rawRecord.price_text.replace("£", "").trim()
+  );
+
+  return {
+    ...rawRecord,
+    price_gbp: numericPrice
+  };
+}
+
+function validateRecords(rawRecords) {
+  const validRecords = [];
+  const errors = [];
+
+  for (const rawRecord of rawRecords) {
+    const normalizedRecord = normalizeRecord(rawRecord);
+
+    const result = BookSchema.safeParse(normalizedRecord);
+
+    if (result.success) {
+      validRecords.push(result.data);
+    } else {
+      errors.push({
+        product_url: rawRecord.product_url,
+        reason: result.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message
+        }))
+      });
+    }
+  }
+
+  return {
+    validRecords,
+    errors
+  };
+}
+
+function deduplicateByProductUrl(records) {
+  const uniqueRecords = new Map();
+
+  for (const record of records) {
+    uniqueRecords.set(record.product_url, record);
+  }
+
+  return [...uniqueRecords.values()];
+}
+
+function writeOutput(validRecords, errors) {
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  fs.writeFileSync(
+    BOOKS_FILE,
+    JSON.stringify(validRecords, null, 2),
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    ERRORS_FILE,
+    JSON.stringify(errors, null, 2),
+    "utf8"
+  );
+}
 
 // Wait at least 500 ms between real requests
 async function waitBeforeRealRequest() {
@@ -311,40 +392,40 @@ async function extractAllBooks(
 
 async function main() {
   try {
-    const discoveredBooks =
-      await discoverBooks();
+    const discoveredBooks = await discoverBooks();
 
-    const rawRecords =
-      await extractAllBooks(
-        discoveredBooks
-      );
-
-    console.log(
-      `detail_pages=${rawRecords.length}`
+    const rawRecords = await extractAllBooks(
+      discoveredBooks
     );
 
-    console.log(
-      "\nSample raw record:"
-    );
+    console.log(`detail_pages=${rawRecords.length}`);
 
+    const {
+      validRecords,
+      errors
+    } = validateRecords(rawRecords);
+
+    const uniqueValidRecords =
+      deduplicateByProductUrl(validRecords);
+
+    writeOutput(uniqueValidRecords, errors);
+
+    console.log(`valid_records=${uniqueValidRecords.length}`);
+    console.log(`invalid_records=${errors.length}`);
+    console.log(`books_file=${BOOKS_FILE}`);
+    console.log(`errors_file=${ERRORS_FILE}`);
+
+    console.log("\nSample validated record:");
     console.log(
-      JSON.stringify(
-        rawRecords[0],
-        null,
-        2
-      )
+      JSON.stringify(uniqueValidRecords[0], null, 2)
     );
   } catch (error) {
-    if (
-      error.name === "AbortError"
-    ) {
+    if (error.name === "AbortError") {
       console.error(
         `Request timed out after ${TIMEOUT_MS} ms`
       );
     } else {
-      console.error(
-        error.message
-      );
+      console.error(error.message);
     }
 
     process.exitCode = 1;
