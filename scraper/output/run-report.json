@@ -1,17 +1,11 @@
 {
-  "start_time": "2026-10-03T19:31:43.274Z",
-  "duration_ms": 1620,
-  "network_requests": 1,
+  "start_time": "2026-10-03T19:48:51.191Z",
+  "duration_ms": 655,
+  "network_requests": 0,
   "pages_fetched": 0,
   "cache_hits": 63,
   "valid_records": 60,
   "invalid_records": 0,
-  "failed_pages": 1,
-  "failed_page_details": [
-    {
-      "url": "https://books.toscrape.com/catalogue/definitely-not-a-real-book-stage-5/index.html",
-      "status": 404,
-      "reason": "Fetch failed with status 404: https://books.toscrape.com/catalogue/definitely-not-a-real-book-stage-5/index.html"
-    }
-  ]
+  "failed_pages": 0,
+  "failed_page_details": []
 }

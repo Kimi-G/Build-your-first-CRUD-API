@@ -4,8 +4,8 @@
   "description": "An API that manages a to do list",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scrape": "node scraper/src/index.js"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kimi-G/Build-your-first-CRUD-API.git"
