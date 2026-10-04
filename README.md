@@ -162,6 +162,10 @@ SELECT * FROM tasks WHERE done = 1;
 
 This query returned all completed tasks, demonstrating how SQL can filter rows directly in the SQLite database.
 
+## LLM Provider Configuration
+
+The LLM provider is configured through `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`. The application currently uses local Ollama, and an OpenAI-compatible provider can be substituted by changing these environment variables rather than hard-coding a provider in the application.
+
 ## Technologies
 
 - Node.js

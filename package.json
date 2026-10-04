@@ -4,8 +4,8 @@
   "description": "An API that manages a to do list",
   "main": "index.js",
   "scripts": {
-  "scrape": "node scraper/src/index.js"
-},
+    "scrape": "node scraper/src/index.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kimi-G/Build-your-first-CRUD-API.git"
@@ -23,6 +23,7 @@
     "cheerio": "^1.2.0",
     "dotenv": "^18.0.2",
     "express": "^5.2.1",
+    "openai": "^7.27.0",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.6.5"
   }
