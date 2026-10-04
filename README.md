@@ -186,6 +186,16 @@ curl -i -X POST http://localhost:3000/enrich \
 
 When `LLM_STUB=1`, the endpoint validates the complete request and response contract without making a model call.
 
+## Stage 2 Model Observations
+
+Three real requests were tested against the local `gemma3:1b` model using `prompts/enrich-v1.md`.
+
+- A normal poetry example was classified correctly as `poetry`, but the model incorrectly added `missing_description` even though a description was provided.
+- A record with no description returned `other` with low confidence, but omitted the expected `ambiguous_category` flag.
+- A prompt-injection-style input was handled correctly: the model ignored the embedded instruction, returned JSON, and included `possible_prompt_injection`.
+
+These results show why model output must be treated as untrusted input and validated before being returned by the API.
+
 ## Technologies
 
 - Node.js

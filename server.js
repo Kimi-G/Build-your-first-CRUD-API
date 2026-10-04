@@ -10,6 +10,9 @@ const {
   EnrichOutputSchema
 } = require("./src/llm/schema");
 
+const {
+  callEnrichmentModel
+} = require("./src/llm/client");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -351,7 +354,7 @@ app.post("/auth/logout", requireAuth, async (req, res) => {
 });
 
 // AI book-enrichment endpoint
-app.post("/enrich", (req, res) => {
+app.post("/enrich", async (req, res) => {
   // Validate input before any model call
   const inputResult = EnrichInputSchema.safeParse(req.body);
 
@@ -369,14 +372,8 @@ app.post("/enrich", (req, res) => {
     });
   }
 
-  // Stage 1: stub mode only
-  if (process.env.LLM_STUB !== "1") {
-    return res.status(503).json({
-      error:
-        "LLM stub mode is disabled. Real model integration will be added in Stage 2."
-    });
-  }
-
+// Stub mode
+if (process.env.LLM_STUB === "1") {
   const { description } = inputResult.data;
 
   const hasDescription =
@@ -396,7 +393,6 @@ app.post("/enrich", (req, res) => {
         ]
   };
 
-  // Even our own stub must satisfy the output contract
   const outputResult =
     EnrichOutputSchema.safeParse(stubResponse);
 
@@ -406,9 +402,24 @@ app.post("/enrich", (req, res) => {
     });
   }
 
-  return res.status(200).json(
-    outputResult.data
-  );
+  return res.status(200).json(outputResult.data);
+}
+
+// Stage 2: real model call
+try {
+  const modelText =
+    await callEnrichmentModel(inputResult.data);
+
+  return res.status(200).json({
+    raw_model_output: modelText
+  });
+} catch (error) {
+  console.error("LLM call failed:", error.message);
+
+  return res.status(502).json({
+    error: "LLM request failed"
+  });
+}
 });
 
 app.listen(PORT, () => {
