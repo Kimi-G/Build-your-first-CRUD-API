@@ -372,6 +372,13 @@ app.post("/enrich", async (req, res) => {
     });
   }
 
+// Emergency kill switch
+if (process.env.LLM_ENABLED === "false") {
+  return res.status(503).json({
+    error: "LLM feature is currently disabled"
+  });
+}
+
 // Stub mode
 if (process.env.LLM_STUB === "1") {
   const { description } = inputResult.data;
