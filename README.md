@@ -166,6 +166,26 @@ This query returned all completed tasks, demonstrating how SQL can filter rows d
 
 The LLM provider is configured through `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`. The application currently uses local Ollama, and an OpenAI-compatible provider can be substituted by changing these environment variables rather than hard-coding a provider in the application.
 
+## Book Enrichment Endpoint
+
+### Valid request
+
+```bash
+curl -i -X POST http://localhost:3000/enrich \
+-H "Content-Type: application/json" \
+-d '{"title":"A Light in the Attic","description":"A collection of poems and drawings for readers of different ages."}'
+```
+
+### Invalid request
+
+```bash
+curl -i -X POST http://localhost:3000/enrich \
+-H "Content-Type: application/json" \
+-d '{"description":"Some description"}'
+```
+
+When `LLM_STUB=1`, the endpoint validates the complete request and response contract without making a model call.
+
 ## Technologies
 
 - Node.js

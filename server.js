@@ -5,6 +5,11 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./openapi.json");
 const Database = require("better-sqlite3");
 const { createClient } = require("@supabase/supabase-js");
+const {
+  EnrichInputSchema,
+  EnrichOutputSchema
+} = require("./src/llm/schema");
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -343,6 +348,67 @@ app.post("/auth/logout", requireAuth, async (req, res) => {
   }
 
   res.status(204).send();
+});
+
+// AI book-enrichment endpoint
+app.post("/enrich", (req, res) => {
+  // Validate input before any model call
+  const inputResult = EnrichInputSchema.safeParse(req.body);
+
+  if (!inputResult.success) {
+    const issue = inputResult.error.issues[0];
+
+    const field =
+      issue.path.length > 0
+        ? issue.path.join(".")
+        : "body";
+
+    return res.status(400).json({
+      error: `Invalid ${field}: ${issue.message}`,
+      field
+    });
+  }
+
+  // Stage 1: stub mode only
+  if (process.env.LLM_STUB !== "1") {
+    return res.status(503).json({
+      error:
+        "LLM stub mode is disabled. Real model integration will be added in Stage 2."
+    });
+  }
+
+  const { description } = inputResult.data;
+
+  const hasDescription =
+    typeof description === "string" &&
+    description.trim().length > 0;
+
+  const stubResponse = {
+    category: "other",
+    summary:
+      "Stub response used for local API testing.",
+    confidence: 0.25,
+    quality_flags: hasDescription
+      ? ["ambiguous_category"]
+      : [
+          "missing_description",
+          "ambiguous_category"
+        ]
+  };
+
+  // Even our own stub must satisfy the output contract
+  const outputResult =
+    EnrichOutputSchema.safeParse(stubResponse);
+
+  if (!outputResult.success) {
+    return res.status(500).json({
+      error: "Stub response failed output validation"
+    });
+  }
+
+  return res.status(200).json(
+    outputResult.data
+  );
 });
 
 app.listen(PORT, () => {
