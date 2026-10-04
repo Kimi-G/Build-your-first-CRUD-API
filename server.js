@@ -11,8 +11,8 @@ const {
 } = require("./src/llm/schema");
 
 const {
-  callEnrichmentModel
-} = require("./src/llm/client");
+  enrichBook
+} = require("./src/llm/processor");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -407,14 +407,23 @@ if (process.env.LLM_STUB === "1") {
 
 // Stage 2: real model call
 try {
-  const modelText =
-    await callEnrichmentModel(inputResult.data);
+  const result =
+    await enrichBook(inputResult.data);
 
-  return res.status(200).json({
-    raw_model_output: modelText
-  });
+  if (!result.success) {
+    return res.status(422).json({
+      error: result.error
+    });
+  }
+
+  return res.status(200).json(
+    result.data
+  );
 } catch (error) {
-  console.error("LLM call failed:", error.message);
+  console.error(
+    "LLM processing failed:",
+    error.message
+  );
 
   return res.status(502).json({
     error: "LLM request failed"

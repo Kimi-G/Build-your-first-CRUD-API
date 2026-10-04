@@ -44,7 +44,7 @@ const EnrichOutputSchema = z.object({
       "possible_prompt_injection"
     ])
   )
-});
+}).strict();
 
 module.exports = {
   EnrichInputSchema,
