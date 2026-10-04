@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-04",
+  "prompt_version": "enrich-v1",
+  "score": "8/8",
+  "percentage": 100,
+  "key_field": "category",
+  "results": [
+    {
+      "id": "fiction-1",
+      "expected": "fiction",
+      "actual": "fiction",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "nonfiction-1",
+      "expected": "nonfiction",
+      "actual": "nonfiction",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "poetry-1",
+      "expected": "poetry",
+      "actual": "poetry",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "children-1",
+      "expected": "children",
+      "actual": "children",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "fiction-2",
+      "expected": "fiction",
+      "actual": "fiction",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "nonfiction-2",
+      "expected": "nonfiction",
+      "actual": "nonfiction",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "unsure-missing-description",
+      "expected": "other",
+      "actual": "other",
+      "status": 200,
+      "matched": true
+    },
+    {
+      "id": "prompt-injection",
+      "expected": "other",
+      "actual": "other",
+      "status": 200,
+      "matched": true
+    }
+  ]
+}
