@@ -82,8 +82,36 @@ function getReportById(id) {
   }
 }
 
+function getReportForDate(date) {
+  const db = openDatabase();
+
+  try {
+    const report = db
+      .prepare(`
+        SELECT
+          id,
+          path,
+          created_at
+        FROM reports
+        WHERE substr(created_at, 1, 10) = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `)
+      .get(date);
+
+    if (!report) {
+      return null;
+    }
+
+    return { ...report };
+  } finally {
+    db.close();
+  }
+}
+
 module.exports = {
   initializeReportsTable,
   createReportRecord,
-  getReportById
-};
+  getReportById,
+  getReportForDate
+};  

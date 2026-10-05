@@ -11,6 +11,12 @@ Install dependencies:
 ```bash
 npm install
 
-## Stage 4 Observation
+##\ Stage 4 Observation
 
 PDF generation currently runs inside the request, which is acceptable for a small report, but I would move it to a background job once generation becomes slow enough to make users wait several seconds or when many reports may be requested concurrently.
+
+## Stage 5 Idempotency
+
+The report endpoint reuses a report that has already been generated on the same day, protecting against duplicate PDFs caused by double-clicks, retries, or repeated requests.
+
+In a real system, missing this kind of idempotency check could cost money by charging a customer's card twice, sending the same paid email twice, or performing another billable operation more than once.

@@ -8,7 +8,8 @@ const {
 const {
   initializeReportsTable,
   createReportRecord,
-  getReportById
+  getReportById,
+  getReportForDate
 } = require("./src/reportStore");
 
 const app = express();
@@ -18,6 +19,27 @@ app.use(express.json());
 
 initializeReportsTable();
 
+let reportGenerationPromise = null;
+
+async function generateAndStoreReport() {
+  const reportsDir = path.join(
+    __dirname,
+    "reports"
+  );
+
+  const filename =
+    `report-${Date.now()}.pdf`;
+
+  const outputPath = path.join(
+    reportsDir,
+    filename
+  );
+
+  await renderReport(outputPath);
+
+  return createReportRecord(outputPath);
+}
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok"
@@ -26,32 +48,65 @@ app.get("/health", (req, res) => {
 
 app.post("/reports", async (req, res) => {
   try {
-    const reportsDir = path.join(
-      __dirname,
-      "reports"
-    );
+    const force = req.body?.force === true;
 
-    /*
-      We create the DB record after rendering,
-      so use a unique timestamp filename for now.
-      Stage 5 will add idempotency.
-    */
-    const filename =
-      `report-${Date.now()}.pdf`;
+    // Normal requests reuse today's report.
+    if (!force) {
+      const today =
+        new Date().toISOString().slice(0, 10);
 
-    const outputPath = path.join(
-      reportsDir,
-      filename
-    );
+      const existingReport =
+        getReportForDate(today);
 
-    await renderReport(outputPath);
+      if (existingReport) {
+        return res.status(200).json({
+          id: existingReport.id,
+          file:
+            `/reports/${existingReport.id}/file`
+        });
+      }
 
+      /*
+        If another request is already generating
+        today's report, wait for that same work
+        instead of generating a duplicate.
+      */
+      if (reportGenerationPromise) {
+        const report =
+          await reportGenerationPromise;
+
+        return res.status(200).json({
+          id: report.id,
+          file:
+            `/reports/${report.id}/file`
+        });
+      }
+
+      reportGenerationPromise =
+        generateAndStoreReport();
+
+      try {
+        const report =
+          await reportGenerationPromise;
+
+        return res.status(201).json({
+          id: report.id,
+          file:
+            `/reports/${report.id}/file`
+        });
+      } finally {
+        reportGenerationPromise = null;
+      }
+    }
+
+    // force:true always generates a fresh report.
     const report =
-      createReportRecord(outputPath);
+      await generateAndStoreReport();
 
     return res.status(201).json({
       id: report.id,
-      file: `/reports/${report.id}/file`
+      file:
+        `/reports/${report.id}/file`
     });
   } catch (error) {
     console.error(
