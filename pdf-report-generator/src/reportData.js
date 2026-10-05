@@ -64,6 +64,29 @@ function getReportData() {
   }
 }
 
+function getAllBooks() {
+  const db = new DatabaseSync(databasePath);
+
+  try {
+    return db
+      .prepare(`
+        SELECT
+          id,
+          title,
+          price,
+          rating,
+          url
+        FROM books
+        ORDER BY id
+      `)
+      .all()
+      .map((book) => ({ ...book }));
+  } finally {
+    db.close();
+  }
+}
+
 module.exports = {
-  getReportData
+  getReportData,
+  getAllBooks
 };
